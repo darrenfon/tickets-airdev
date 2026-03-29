@@ -1,36 +1,38 @@
 import type { Message } from "./supabase";
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 const SYSTEM_PROMPT =
   "You are a support agent for AirDev LLC, a technology company. Generate professional, helpful responses.";
 
-async function callClaude(
+async function callOpenAI(
   system: string,
   userMessage: string
 ): Promise<string> {
-  const res = await fetch(ANTHROPIC_API_URL, {
+  const res = await fetch(OPENAI_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-20250414",
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMessage },
+      ],
       max_tokens: 1024,
-      system,
-      messages: [{ role: "user", content: userMessage }],
+      temperature: 0.7,
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Claude API error: ${res.status} ${text}`);
+    throw new Error(`OpenAI API error: ${res.status} ${text}`);
   }
 
   const data = await res.json();
-  return data.content[0]?.text || "";
+  return data.choices?.[0]?.message?.content || "";
 }
 
 export async function suggestReply(
@@ -50,7 +52,7 @@ ${thread}
 
 Generate a professional, helpful reply to this support ticket. Be concise and actionable. Do not include a greeting or sign-off — just the reply body.`;
 
-  return callClaude(SYSTEM_PROMPT, prompt);
+  return callOpenAI(SYSTEM_PROMPT, prompt);
 }
 
 export async function categorizeTicket(
@@ -67,7 +69,7 @@ First message: "${firstMessage}"
 
 Return ONLY the JSON object, nothing else.`;
 
-  const response = await callClaude(SYSTEM_PROMPT, prompt);
+  const response = await callOpenAI(SYSTEM_PROMPT, prompt);
 
   try {
     return JSON.parse(response);
